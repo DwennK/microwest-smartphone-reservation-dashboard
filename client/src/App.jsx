@@ -1,6 +1,22 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Download,
+  Ellipsis,
+  Plus,
+  Save,
+  SquarePen,
+  Trash2,
+  Upload,
+  X
+} from "lucide-react";
+import {
   createRequest,
   deleteRequest,
   fetchOptions,
@@ -11,6 +27,9 @@ import {
   updateRequestStatus
 } from "./api";
 import { APP_VERSION, STATUS_OPTIONS, STATUS_STYLES, STORAGE_OPTIONS } from "./constants";
+
+const iconClassName = "size-[22px] shrink-0";
+const iconCompactClassName = "size-[22px]";
 
 const emptyForm = {
   customerName: "",
@@ -441,17 +460,17 @@ function App() {
               <button
                 type="button"
                 onClick={openCreateForm}
-                className="col-span-2 inline-flex min-h-12 items-center justify-center rounded-2xl bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 lg:col-span-1"
+                className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 lg:col-span-1"
               >
-                <PlusIcon />
+                <Plus className={iconClassName} />
                 Nouvelle réservation
               </button>
               <button
                 type="button"
                 onClick={openOperations}
-                className="col-span-2 inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 lg:col-span-1"
+                className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 lg:col-span-1"
               >
-                <MenuIcon />
+                <Ellipsis className={iconClassName} />
                 Import / Export
               </button>
             </div>
@@ -628,7 +647,7 @@ function App() {
                       onClick={() => handleEdit(request)}
                       className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
                     >
-                      <EditIcon />
+                      <SquarePen className={iconClassName} />
                       Modifier
                     </button>
                     <button
@@ -636,7 +655,7 @@ function App() {
                       onClick={() => handleDelete(request)}
                       className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50"
                     >
-                      <TrashIcon />
+                      <Trash2 className={iconClassName} />
                       Supprimer
                     </button>
                   </div>
@@ -665,7 +684,11 @@ function App() {
                           className="inline-flex items-center gap-1 rounded-lg px-1 py-1 transition hover:bg-slate-100"
                         >
                           Date
-                          <SortIcon direction={filters.sort} />
+                          {filters.sort === "newest" ? (
+                            <ArrowDown className={iconClassName} />
+                          ) : (
+                            <ArrowUp className={iconClassName} />
+                          )}
                         </button>
                       </TableHead>
                       <TableHead>Contacté</TableHead>
@@ -728,7 +751,7 @@ function App() {
                               onClick={() => handleEdit(request)}
                               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
                             >
-                              <EditIcon />
+                              <SquarePen className={iconClassName} />
                               Modifier
                             </button>
                             <button
@@ -736,7 +759,7 @@ function App() {
                               onClick={() => handleDelete(request)}
                               className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50"
                             >
-                              <TrashIcon />
+                              <Trash2 className={iconClassName} />
                               Supprimer
                             </button>
                           </div>
@@ -958,7 +981,7 @@ function FormDrawer({
                 disabled={submitting}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
-                <SaveIcon />
+                <Save className={iconClassName} />
                 {submitting ? "Enregistrement..." : editingId ? "Valider" : "Enregistrer"}
               </button>
               <button
@@ -966,7 +989,7 @@ function FormDrawer({
                 onClick={onCancel}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
               >
-                <CloseIcon />
+                <X className={iconClassName} />
                 Annuler
               </button>
             </div>
@@ -1039,7 +1062,7 @@ function OperationsDrawer({
               <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
                 <div className="flex items-start gap-3">
                   <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 ring-1 ring-slate-200">
-                    <UploadIcon compact />
+                    <Upload className={iconCompactClassName} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-base font-semibold text-slate-950">Importer un CSV</h3>
@@ -1054,7 +1077,7 @@ function OperationsDrawer({
                   disabled={importing}
                   className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
-                  <UploadIcon />
+                  <Upload className={`${iconClassName} mr-2`} />
                   {importing ? "Import en cours..." : "Choisir un fichier CSV"}
                 </button>
                 <label className="mt-4 inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700">
@@ -1071,7 +1094,7 @@ function OperationsDrawer({
               <div className="rounded-3xl border border-slate-200 bg-white p-4">
                 <div className="flex items-start gap-3">
                   <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-700 ring-1 ring-slate-200">
-                    <DownloadIcon compact />
+                    <Download className={iconCompactClassName} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-base font-semibold text-slate-950">Exporter le filtre courant</h3>
@@ -1085,7 +1108,7 @@ function OperationsDrawer({
                   onClick={onExport}
                   className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50"
                 >
-                  <DownloadIcon />
+                  <Download className={`${iconClassName} mr-2`} />
                   Exporter la sauvegarde CSV
                 </button>
               </div>
@@ -1105,7 +1128,7 @@ function OperationsDrawer({
               onClick={onClose}
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
             >
-              <CloseIcon />
+              <X className={iconClassName} />
               Fermer
             </button>
           </div>
@@ -1231,7 +1254,7 @@ function DateField({ label, name, onChange, required = false, value }) {
           {formatSwissDate(value)}
         </button>
         <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
-          <CalendarIcon />
+          <CalendarDays className={iconClassName} />
         </div>
         <input
           ref={inputRef}
@@ -1375,7 +1398,7 @@ function StatusBadgeMenu({ request, isOpen, onToggle, onSelectStatus }) {
         title="Changer le statut"
       >
         {getStatusLabel(request.status)}
-        <ChevronDownIcon />
+        <ChevronDown className="size-[22px]" />
       </button>
 
       {isOpen && canRenderMenu
@@ -1403,7 +1426,7 @@ function StatusBadgeMenu({ request, isOpen, onToggle, onSelectStatus }) {
                     }`}
                   >
                     <span>{status.label}</span>
-                    {isActive ? <CheckIcon /> : null}
+                    {isActive ? <Check className={iconClassName} /> : null}
                   </button>
                 );
               })}
@@ -1448,7 +1471,11 @@ function ToastStack({ toast, onClose }) {
       >
         <div className={`absolute inset-y-0 left-0 w-1.5 ${tone.accent}`} />
         <div className={`mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tone.iconWrap}`}>
-          {toast.tone === "error" ? <ErrorToastIcon /> : <SuccessToastIcon />}
+          {toast.tone === "error" ? (
+            <AlertCircle className={iconClassName} />
+          ) : (
+            <Check className={iconClassName} />
+          )}
         </div>
         <div className="min-w-0 flex-1 pr-1">
           <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${tone.eyebrow}`}>
@@ -1462,162 +1489,10 @@ function ToastStack({ toast, onClose }) {
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           aria-label="Fermer la notification"
         >
-          <CloseIcon />
+          <X className={iconClassName} />
         </button>
       </div>
     </div>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M10 4v12M4 10h12" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function DownloadIcon({ compact = false }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      className={compact ? "h-4 w-4" : "mr-2 h-4 w-4"}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <path d="M10 3v9" strokeLinecap="round" />
-      <path d="m6.5 9.5 3.5 3.5 3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M4 16h12" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function UploadIcon({ compact = false }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      className={compact ? "h-4 w-4" : "mr-2 h-4 w-4"}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-    >
-      <path d="M10 16V7" strokeLinecap="round" />
-      <path d="M6.5 10.5 10 7l3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M4 16h12" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MenuIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M4 6h12M4 10h12M4 14h12" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function EditIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path
-        d="M4 14.8V16h1.2l8-8-1.2-1.2-8 8ZM14 7.2l1-1a1.4 1.4 0 0 0 0-2l-.2-.2a1.4 1.4 0 0 0-2 0l-1 1L14 7.2Z"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M4.5 6h11" strokeLinecap="round" />
-      <path d="M7.5 6V4.8c0-.4.3-.8.8-.8h3.4c.5 0 .8.4.8.8V6" strokeLinecap="round" />
-      <path d="M6.5 6l.6 9c0 .5.4 1 .9 1h4c.5 0 .9-.5.9-1l.6-9" strokeLinecap="round" />
-      <path d="M8.5 9.2v4.2M11.5 9.2v4.2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function SaveIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path
-        d="M5 4h8l2 2v10H5V4Z"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M8 4v4h4V4M8 16v-4h4v4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="m6 6 8 8M14 6l-8 8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M6.5 3.5v2.2M13.5 3.5v2.2M3.75 7.75h12.5" strokeLinecap="round" />
-      <path
-        d="M5.5 4.75h9c.97 0 1.75.78 1.75 1.75v8c0 .97-.78 1.75-1.75 1.75h-9c-.97 0-1.75-.78-1.75-1.75v-8c0-.97.78-1.75 1.75-1.75Z"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function SortIcon({ direction }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      {direction === "newest" ? (
-        <path d="M10 5v10M6.5 8.5 10 5l3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
-      ) : (
-        <path d="M10 15V5m-3.5 6.5L10 15l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
-      )}
-    </svg>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="m5.5 7.5 4.5 4.5 4.5-4.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="m5 10 3.2 3.2L15 6.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SuccessToastIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="m5 10 3.2 3.2L15 6.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ErrorToastIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M10 6.2v4.8M10 14h.01" strokeLinecap="round" />
-      <path d="M10 3.5 17 16.5H3L10 3.5Z" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }
 
