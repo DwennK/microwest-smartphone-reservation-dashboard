@@ -26,10 +26,23 @@ const csvTextParser = express.text({
   type: ["text/csv", "application/csv", "text/plain"],
   limit: "2mb"
 });
+const allowedOriginPatterns = [
+  /^http:\/\/localhost:5173$/i,
+  /^http:\/\/127\.0\.0\.1:5173$/i,
+  /^https?:\/\/100\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d+)?$/i,
+  /^https?:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.ts\.net(?::\d+)?$/i
+];
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"]
+    origin(origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      const isAllowed = allowedOriginPatterns.some((pattern) => pattern.test(origin));
+      return callback(isAllowed ? null : new Error("Origin non autorisee par CORS."), isAllowed);
+    }
   })
 );
 app.use(express.json());
