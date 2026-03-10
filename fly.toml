@@ -1,0 +1,28 @@
+app = "microwest-smartphone-reservation-dashboard"
+primary_region = "cdg"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+
+[[mounts]]
+  source = "data"
+  destination = "/app/server/data"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "15s"
+    method = "GET"
+    path = "/api/health"
+    protocol = "http"
+    timeout = "5s"
