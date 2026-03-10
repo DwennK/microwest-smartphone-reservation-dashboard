@@ -47,6 +47,32 @@ Cette commande lance :
 
 Le frontend proxifie automatiquement les requetes `/api` vers le backend.
 
+## Test en developpement via Tailscale
+
+Le mode developpement peut etre teste depuis un autre PC connecte au meme tailnet.
+
+Configuration actuelle :
+
+- Vite ecoute sur le reseau local
+- le backend autorise les origines `localhost`, les IP Tailscale `100.x.x.x` et les noms `*.ts.net`
+- Vite autorise les hotes `*.ts.net`
+
+Utilisation :
+
+```bash
+npm run dev
+```
+
+Puis, depuis un autre PC du tailnet, ouvrez par exemple :
+
+- `http://nom-machine.votre-tailnet.ts.net:5173`
+- `http://100.x.x.x:5173`
+
+Notes :
+
+- le nom court de la machine sans suffixe `*.ts.net` n'est pas autorise par Vite
+- ce flux est prevu pour du test en developpement, pas comme mode de production
+
 ## Commandes racine
 
 Depuis la racine du projet :
@@ -61,7 +87,7 @@ Comportement des scripts :
 
 - `npm run dev` lance le frontend et le backend en parallele
 - `npm run build` build uniquement le frontend
-- `npm run start` lance uniquement le serveur backend
+- `npm run start` lance le serveur backend et sert aussi le frontend buildé si `client/dist` existe
 
 ## Scripts par dossier
 
@@ -91,6 +117,22 @@ cd client
 npm run build
 npm run preview
 ```
+
+## Lancement en production
+
+Depuis la racine du projet :
+
+```bash
+npm install
+npm run build
+npm run start
+```
+
+En production :
+
+- Express sert l'application web sur `http://localhost:3001`
+- les routes `/api` restent disponibles sur le meme serveur
+- si le build frontend n'existe pas encore, `npm run start` ne sert que l'API
 
 ## Fonctionnalites
 

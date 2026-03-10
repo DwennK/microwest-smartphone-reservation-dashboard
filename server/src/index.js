@@ -1,3 +1,5 @@
+const fs = require("node:fs");
+const path = require("node:path");
 const express = require("express");
 const cors = require("cors");
 const { ALLOWED_STATUSES, ALLOWED_STORAGE_CAPACITIES } = require("./constants");
@@ -22,6 +24,9 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const clientDistPath = path.join(__dirname, "..", "..", "client", "dist");
+const clientIndexPath = path.join(clientDistPath, "index.html");
+const hasClientBuild = fs.existsSync(clientIndexPath);
 const csvTextParser = express.text({
   type: ["text/csv", "application/csv", "text/plain"],
   limit: "2mb"
@@ -46,6 +51,10 @@ app.use(
   })
 );
 app.use(express.json());
+
+if (hasClientBuild) {
+  app.use(express.static(clientDistPath, { index: false }));
+}
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true });
@@ -209,6 +218,17 @@ app.delete("/api/requests/:id", (req, res) => {
   return res.status(204).send();
 });
 
+if (hasClientBuild) {
+  app.get("/{*path}", (req, res, next) => {
+    if (req.path.startsWith("/api/")) {
+      return next();
+    }
+
+    return res.sendFile(clientIndexPath);
+  });
+}
+
 app.listen(PORT, () => {
-  console.log(`Microwest API running on http://localhost:${PORT}`);
+  const appType = hasClientBuild ? "Microwest app" : "Microwest API";
+  console.log(`${appType} running on http://localhost:${PORT}`);
 });
