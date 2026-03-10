@@ -40,6 +40,22 @@ function toInputDate(value) {
   return value ? value.slice(0, 10) : "";
 }
 
+function formatSwissDate(value) {
+  const inputDate = toInputDate(value);
+
+  if (!inputDate) {
+    return "";
+  }
+
+  const [year, month, day] = inputDate.split("-");
+
+  if (!year || !month || !day) {
+    return inputDate;
+  }
+
+  return `${day}.${month}.${year}`;
+}
+
 function getStatusLabel(status) {
   return STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
 }
@@ -512,7 +528,7 @@ function App() {
                   <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <InfoItem label="Modèle" value={request.requestedModel} />
                     <InfoItem label="Capacité" value={request.storageCapacity || "-"} />
-                    <InfoItem label="Date" value={toInputDate(request.requestDate)} />
+                    <InfoItem label="Date" value={formatSwissDate(request.requestDate)} />
                     <div className="rounded-2xl bg-slate-50 px-3 py-3">
                       <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                         Contacté
@@ -611,7 +627,7 @@ function App() {
                         </TableCell>
                         <TableCell>{request.requestedModel}</TableCell>
                         <TableCell>{request.storageCapacity || "-"}</TableCell>
-                        <TableCell>{toInputDate(request.requestDate)}</TableCell>
+                        <TableCell>{formatSwissDate(request.requestDate)}</TableCell>
                         <TableCell>
                           <label className="inline-flex items-center justify-center">
                             <input
@@ -808,10 +824,9 @@ function FormDrawer({
                   ))}
                 </SelectField>
 
-                <InputField
+                <DateField
                   label="Date de la réservation"
                   name="requestDate"
-                  type="date"
                   value={formValues.requestDate}
                   onChange={onChange}
                   required
@@ -964,6 +979,54 @@ function InputField({
         required={required}
         {...props}
       />
+    </label>
+  );
+}
+
+function DateField({ label, name, onChange, required = false, value }) {
+  const inputRef = useRef(null);
+
+  function openPicker() {
+    if (!inputRef.current) {
+      return;
+    }
+
+    if (typeof inputRef.current.showPicker === "function") {
+      inputRef.current.showPicker();
+      return;
+    }
+
+    inputRef.current.focus();
+    inputRef.current.click();
+  }
+
+  return (
+    <label className="grid gap-2 text-sm font-medium text-slate-700">
+      <span>{label}</span>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={openPicker}
+          className="flex min-h-12 w-full items-center rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-left text-base text-slate-950 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+        >
+          {formatSwissDate(value)}
+        </button>
+        <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">
+          <CalendarIcon />
+        </div>
+        <input
+          ref={inputRef}
+          className="pointer-events-none absolute inset-0 opacity-0"
+          type="date"
+          lang="fr-CH"
+          name={name}
+          value={value}
+          onChange={onChange}
+          required={required}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </div>
     </label>
   );
 }
@@ -1245,6 +1308,19 @@ function CloseIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="m6 6 8 8M14 6l-8 8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M6.5 3.5v2.2M13.5 3.5v2.2M3.75 7.75h12.5" strokeLinecap="round" />
+      <path
+        d="M5.5 4.75h9c.97 0 1.75.78 1.75 1.75v8c0 .97-.78 1.75-1.75 1.75h-9c-.97 0-1.75-.78-1.75-1.75v-8c0-.97.78-1.75 1.75-1.75Z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
