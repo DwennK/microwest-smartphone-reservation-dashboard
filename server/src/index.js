@@ -1,6 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 const { ALLOWED_STATUSES, ALLOWED_STORAGE_CAPACITIES } = require("./constants");
 const {
   createRequest,
@@ -15,7 +14,6 @@ const { buildFilters, normalizeStatus, validateRequestPayload } = require("./uti
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const clientDistPath = path.join(__dirname, "..", "..", "client", "dist");
 
 app.use(
   cors({
@@ -130,14 +128,6 @@ app.delete("/api/requests/:id", (req, res) => {
 
   return res.status(204).send();
 });
-
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(clientDistPath));
-
-  app.get(/^(?!\/api).*/, (req, res) => {
-    res.sendFile(path.join(clientDistPath, "index.html"));
-  });
-}
 
 app.listen(PORT, () => {
   console.log(`Microwest API running on http://localhost:${PORT}`);
