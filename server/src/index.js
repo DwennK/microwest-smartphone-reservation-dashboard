@@ -2,18 +2,30 @@ const express = require("express");
 const cors = require("cors");
 const { ALLOWED_STATUSES, ALLOWED_STORAGE_CAPACITIES } = require("./constants");
 const {
+  buildImportDuplicateKey,
   createRequest,
+  createRequests,
   deleteRequest,
   findRequestById,
+  listImportDuplicateKeys,
   listRequests,
   updateRequest,
   updateRequestStatus
 } = require("./repository");
-const { generateCsv } = require("./csv");
-const { buildFilters, normalizeStatus, validateRequestPayload } = require("./utils");
+const { generateCsv, parseCsv } = require("./csv");
+const {
+  buildFilters,
+  normalizeStatus,
+  validateImportedRequestRow,
+  validateRequestPayload
+} = require("./utils");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const csvTextParser = express.text({
+  type: ["text/csv", "application/csv", "text/plain"],
+  limit: "2mb"
+});
 
 app.use(
   cors({
@@ -40,13 +52,68 @@ app.get("/api/requests", (req, res) => {
 });
 
 app.get("/api/requests/export/csv", (req, res) => {
-  const filters = buildFilters(req.query);
-  const requests = listRequests(filters);
+  const requests = listRequests(buildFilters({}));
   const csv = generateCsv(requests);
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", 'attachment; filename="microwest-requests.csv"');
   res.send(csv);
+});
+
+app.post("/api/requests/import/csv", csvTextParser, (req, res) => {
+  const { errors: csvErrors, rows } = parseCsv(req.body);
+  const ignoreDuplicates = String(req.query.ignoreDuplicates).toLowerCase() === "true";
+
+  if (csvErrors.length > 0) {
+    return res.status(400).json({ errors: csvErrors });
+  }
+
+  if (rows.length === 0) {
+    return res.status(400).json({ errors: ["Le fichier CSV ne contient aucune reservation a importer."] });
+  }
+
+  const preparedRows = [];
+  const rowErrors = [];
+
+  for (const row of rows) {
+    const { errors, value } = validateImportedRequestRow(row);
+
+    if (errors.length > 0) {
+      rowErrors.push(`Ligne ${row.lineNumber}: ${errors.join(" ")}`);
+      continue;
+    }
+
+    preparedRows.push(value);
+  }
+
+  if (rowErrors.length > 0) {
+    return res.status(400).json({ errors: rowErrors });
+  }
+
+  let rowsToImport = preparedRows;
+  let skippedCount = 0;
+
+  if (ignoreDuplicates) {
+    const existingKeys = listImportDuplicateKeys();
+    const nextRows = [];
+
+    for (const row of preparedRows) {
+      const duplicateKey = buildImportDuplicateKey(row);
+
+      if (existingKeys.has(duplicateKey)) {
+        skippedCount += 1;
+        continue;
+      }
+
+      existingKeys.add(duplicateKey);
+      nextRows.push(row);
+    }
+
+    rowsToImport = nextRows;
+  }
+
+  const importedCount = createRequests(rowsToImport);
+  return res.status(201).json({ importedCount, skippedCount });
 });
 
 app.post("/api/requests", (req, res) => {

@@ -51,6 +51,28 @@ function findRequestById(id) {
   return row ? serializeRequest(row) : null;
 }
 
+function buildImportDuplicateKey(request) {
+  return [
+    String(request.customerName ?? "").trim().toLowerCase(),
+    String(request.phoneNumber ?? "").trim().toLowerCase(),
+    String(request.requestedModel ?? "").trim().toLowerCase(),
+    String(request.requestDate ?? "").trim()
+  ].join("|");
+}
+
+function listImportDuplicateKeys() {
+  const rows = db
+    .prepare(
+      `
+        SELECT customerName, phoneNumber, requestedModel, requestDate
+        FROM requests
+      `
+    )
+    .all();
+
+  return new Set(rows.map(buildImportDuplicateKey));
+}
+
 function createRequest(payload) {
   const statement = db.prepare(`
     INSERT INTO requests (
@@ -80,6 +102,52 @@ function createRequest(payload) {
 
   const result = statement.run(payload);
   return findRequestById(result.lastInsertRowid);
+}
+
+function createRequests(payloads) {
+  if (!Array.isArray(payloads) || payloads.length === 0) {
+    return 0;
+  }
+
+  const statement = db.prepare(`
+    INSERT INTO requests (
+      customerName,
+      phoneNumber,
+      brand,
+      requestedModel,
+      storageCapacity,
+      requestDate,
+      status,
+      notes,
+      createdAt,
+      updatedAt
+    ) VALUES (
+      @customerName,
+      @phoneNumber,
+      @brand,
+      @requestedModel,
+      @storageCapacity,
+      @requestDate,
+      @status,
+      @notes,
+      @createdAt,
+      @updatedAt
+    )
+  `);
+
+  db.exec("BEGIN");
+
+  try {
+    for (const payload of payloads) {
+      statement.run(payload);
+    }
+
+    db.exec("COMMIT");
+    return payloads.length;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 function updateRequest(id, payload) {
@@ -124,10 +192,13 @@ function deleteRequest(id) {
 }
 
 module.exports = {
+  buildImportDuplicateKey,
   createRequest,
+  createRequests,
   deleteRequest,
   findRequestById,
   listRequests,
+  listImportDuplicateKeys,
   updateRequest,
   updateRequestStatus
 };

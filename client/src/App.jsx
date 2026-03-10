@@ -6,6 +6,7 @@ import {
   fetchOptions,
   fetchRequests,
   getExportUrl,
+  importRequestsCsv,
   updateRequest,
   updateRequestStatus
 } from "./api";
@@ -86,10 +87,15 @@ function App() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [ignoreImportDuplicates, setIgnoreImportDuplicates] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [operationsError, setOperationsError] = useState("");
+  const [isOperationsOpen, setIsOperationsOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [openStatusMenuId, setOpenStatusMenuId] = useState(null);
   const firstFieldRef = useRef(null);
+  const importInputRef = useRef(null);
 
   const deferredSearch = useDeferredValue(filters.search);
 
@@ -170,12 +176,17 @@ function App() {
 
       if (isFormOpen) {
         closeForm();
+        return;
+      }
+
+      if (isOperationsOpen) {
+        closeOperations();
       }
     }
 
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [deleteTarget, isFormOpen, openStatusMenuId]);
+  }, [deleteTarget, isFormOpen, isOperationsOpen, openStatusMenuId]);
 
   async function loadDashboard(activeFilters) {
     setLoading(true);
@@ -225,6 +236,16 @@ function App() {
     setEditingId(null);
     setIsFormOpen(false);
     setErrorMessage("");
+  }
+
+  function openOperations() {
+    setOperationsError("");
+    setIsOperationsOpen(true);
+  }
+
+  function closeOperations() {
+    setOperationsError("");
+    setIsOperationsOpen(false);
   }
 
   function showToast(message, tone = "success") {
@@ -343,7 +364,48 @@ function App() {
   }
 
   function handleExportCsv() {
-    window.open(getExportUrl(appliedFilters), "_blank", "noopener,noreferrer");
+    window.open(getExportUrl(), "_blank", "noopener,noreferrer");
+  }
+
+  function handleImportClick() {
+    setOperationsError("");
+    importInputRef.current?.click();
+  }
+
+  async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setImporting(true);
+
+    try {
+      const csvText = await file.text();
+      const result = await importRequestsCsv(csvText, {
+        ignoreDuplicates: ignoreImportDuplicates
+      });
+      const message =
+        result.importedCount === 0 && result.skippedCount > 0
+          ? `Import termine : aucun ajout, ${result.skippedCount} ligne(s) deja presente(s).`
+          : result.importedCount === 0
+            ? "Import termine : aucune reservation ajoutee."
+            : result.skippedCount > 0
+              ? `Import CSV termine : ${result.importedCount} ajoutees, ${result.skippedCount} doublons ignores.`
+              : `Import CSV termine : ${result.importedCount} reservation(s).`;
+      showToast(message);
+      setErrorMessage("");
+      setOperationsError("");
+      closeOperations();
+      await loadDashboard(appliedFilters);
+    } catch (error) {
+      setOperationsError(error.message);
+      showToast(error.message, "error");
+    } finally {
+      setImporting(false);
+    }
   }
 
   return (
@@ -369,6 +431,13 @@ function App() {
             <div className="grid grid-cols-2 gap-3 lg:flex">
               <StatCard label="Total réservations" value={totalCount} />
               <StatCard label="En attente" value={pendingCount} accent="amber" />
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={handleImportFile}
+              />
               <button
                 type="button"
                 onClick={openCreateForm}
@@ -379,11 +448,11 @@ function App() {
               </button>
               <button
                 type="button"
-                onClick={handleExportCsv}
-                className="col-span-2 inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50 lg:col-span-1"
+                onClick={openOperations}
+                className="col-span-2 inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 lg:col-span-1"
               >
-                <DownloadIcon />
-                Export CSV
+                <MenuIcon />
+                Import / Export
               </button>
             </div>
           </div>
@@ -700,6 +769,18 @@ function App() {
         options={options}
         submitting={submitting}
       />
+      <OperationsDrawer
+        errorMessage={operationsError}
+        ignoreDuplicates={ignoreImportDuplicates}
+        importing={importing}
+        isOpen={isOperationsOpen}
+        onClose={closeOperations}
+        onExport={handleExportCsv}
+        onImport={handleImportClick}
+        onToggleIgnoreDuplicates={() =>
+          setIgnoreImportDuplicates((current) => !current)
+        }
+      />
       {deleteTarget ? (
         <DeleteDialog
           deleteTarget={deleteTarget}
@@ -891,6 +972,144 @@ function FormDrawer({
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function OperationsDrawer({
+  errorMessage,
+  ignoreDuplicates,
+  importing,
+  isOpen,
+  onClose,
+  onExport,
+  onImport,
+  onToggleIgnoreDuplicates
+}) {
+  function handleDrawerKeyDown(event) {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      onClose();
+    }
+  }
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 transition ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
+      aria-hidden={!isOpen}
+      onKeyDown={handleDrawerKeyDown}
+    >
+      <div
+        className={`absolute inset-0 bg-slate-950/30 backdrop-blur-sm transition duration-300 ${
+          isOpen ? "opacity-100" : "opacity-0"
+        }`}
+        onClick={onClose}
+      />
+      <div
+        className={`absolute inset-y-0 right-0 flex w-full transform flex-col bg-white shadow-[0_30px_80px_rgba(15,23,42,0.18)] transition duration-300 ease-out ${
+          isOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
+        } md:w-[520px]`}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-5 md:px-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Fichier
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-950 sm:text-2xl">
+              Import / Export CSV
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Centralisez les echanges de donnees sans quitter le tableau de bord.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-lg font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-950"
+          >
+            Ã—
+          </button>
+        </div>
+
+        <div className="flex h-full flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-6">
+            <div className="grid gap-4">
+              <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 ring-1 ring-slate-200">
+                    <UploadIcon compact />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-semibold text-slate-950">Importer un CSV</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Reprend un fichier exporte par l'application et restaure les reservations manquantes.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onImport}
+                  disabled={importing}
+                  className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  <UploadIcon />
+                  {importing ? "Import en cours..." : "Choisir un fichier CSV"}
+                </button>
+                <label className="mt-4 inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={ignoreDuplicates}
+                    onChange={onToggleIgnoreDuplicates}
+                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                  />
+                  Ignorer les doublons deja presents
+                </label>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start gap-3">
+                  <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-700 ring-1 ring-slate-200">
+                    <DownloadIcon compact />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-semibold text-slate-950">Exporter le filtre courant</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Telecharge une sauvegarde CSV complete de toutes les reservations.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onExport}
+                  className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <DownloadIcon />
+                  Exporter la sauvegarde CSV
+                </button>
+              </div>
+
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
+                Le format supporte correspond au CSV exporte par l'application. L'export produit
+                une sauvegarde complete, et l'import peut ignorer les doublons deja presents.
+              </div>
+
+              {errorMessage ? <Feedback tone="error">{errorMessage}</Feedback> : null}
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 border-t border-slate-200 bg-white px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.06)] sm:px-5 md:px-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+            >
+              <CloseIcon />
+              Fermer
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1258,12 +1477,44 @@ function PlusIcon() {
   );
 }
 
-function DownloadIcon() {
+function DownloadIcon({ compact = false }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className={compact ? "h-4 w-4" : "mr-2 h-4 w-4"}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <path d="M10 3v9" strokeLinecap="round" />
       <path d="m6.5 9.5 3.5 3.5 3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M4 16h12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function UploadIcon({ compact = false }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className={compact ? "h-4 w-4" : "mr-2 h-4 w-4"}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M10 16V7" strokeLinecap="round" />
+      <path d="M6.5 10.5 10 7l3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 16h12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 6h12M4 10h12M4 14h12" strokeLinecap="round" />
     </svg>
   );
 }

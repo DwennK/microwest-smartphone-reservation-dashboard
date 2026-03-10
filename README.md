@@ -101,7 +101,8 @@ npm run preview
 - filtre "seulement en attente"
 - tri par date
 - compteurs total et en attente
-- export CSV des donnees filtrees
+- export CSV complet des donnees pour sauvegarde
+- import CSV depuis un fichier exporte par l'application
 
 ## API principale
 
@@ -109,6 +110,7 @@ npm run preview
 - `GET /api/options`
 - `GET /api/requests`
 - `GET /api/requests/export/csv`
+- `POST /api/requests/import/csv`
 - `POST /api/requests`
 - `PUT /api/requests/:id`
 - `PATCH /api/requests/:id/status`

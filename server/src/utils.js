@@ -1,5 +1,13 @@
 const { ALLOWED_STATUSES, ALLOWED_STORAGE_CAPACITIES } = require("./constants");
 
+const STATUS_ALIASES = {
+  "en attente": "en_attente",
+  "contacte": "contacte",
+  "vendu": "vendu",
+  "annule": "annule",
+  en_attente: "en_attente"
+};
+
 function normalizeText(value) {
   if (typeof value !== "string") {
     return "";
@@ -18,6 +26,20 @@ function normalizeRequestDate(value) {
 
   if (!raw) {
     return null;
+  }
+
+  const swissMatch = raw.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
+
+  if (swissMatch) {
+    const [, day, month, year] = swissMatch;
+    const isoCandidate = `${year}-${month}-${day}T00:00:00.000Z`;
+    const parsedSwiss = new Date(isoCandidate);
+
+    if (Number.isNaN(parsedSwiss.getTime())) {
+      return null;
+    }
+
+    return parsedSwiss.toISOString();
   }
 
   const hasTime = raw.includes("T");
@@ -46,7 +68,15 @@ function normalizeStorageCapacity(value) {
 }
 
 function normalizeStatus(value) {
-  const normalized = normalizeText(value);
+  const normalized = normalizeText(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const alias = STATUS_ALIASES[normalized];
+
+  if (alias) {
+    return alias;
+  }
 
   if (!ALLOWED_STATUSES.includes(normalized)) {
     return null;
@@ -128,10 +158,26 @@ function formatDateForInput(isoString) {
   return isoString ? isoString.slice(0, 10) : "";
 }
 
+function validateImportedRequestRow(row) {
+  const { errors, value } = validateRequestPayload(row);
+  const createdAt = normalizeRequestDate(row.createdAt) || new Date().toISOString();
+  const updatedAt = normalizeRequestDate(row.updatedAt) || createdAt;
+
+  return {
+    errors,
+    value: {
+      ...value,
+      createdAt,
+      updatedAt
+    }
+  };
+}
+
 module.exports = {
   buildFilters,
   formatDateForInput,
   normalizeStatus,
   serializeRequest,
+  validateImportedRequestRow,
   validateRequestPayload
 };

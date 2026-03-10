@@ -85,8 +85,19 @@ export async function deleteRequest(id) {
   return parseResponse(response);
 }
 
-export function getExportUrl(filters = {}) {
-  const query = buildQueryString(filters);
-  return query ? `/api/requests/export/csv?${query}` : "/api/requests/export/csv";
+export async function importRequestsCsv(csvText, options = {}) {
+  const query = buildQueryString({
+    ignoreDuplicates: options.ignoreDuplicates ?? false
+  });
+  const response = await fetch(query ? `/api/requests/import/csv?${query}` : "/api/requests/import/csv", {
+    method: "POST",
+    headers: { "Content-Type": "text/csv" },
+    body: csvText
+  });
+
+  return parseResponse(response);
 }
 
+export function getExportUrl() {
+  return "/api/requests/export/csv";
+}
