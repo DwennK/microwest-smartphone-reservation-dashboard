@@ -15,6 +15,7 @@ const { buildFilters, normalizeStatus, validateRequestPayload } = require("./uti
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || "0.0.0.0";
 const clientDistPath = path.join(__dirname, "..", "..", "client", "dist");
 
 app.use(
@@ -139,6 +140,6 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Microwest API running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Microwest API running on http://${HOST}:${PORT}`);
 });
