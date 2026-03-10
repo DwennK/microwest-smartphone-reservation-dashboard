@@ -1,4 +1,5 @@
 export const STORAGE_OPTIONS = ["64 GB", "128 GB", "256 GB", "512 GB"];
+export const APP_VERSION = "2026.03.10";
 
 export const STATUS_OPTIONS = [
   { value: "en_attente", label: "En attente" },

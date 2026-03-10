@@ -9,7 +9,7 @@ import {
   updateRequest,
   updateRequestStatus
 } from "./api";
-import { STATUS_OPTIONS, STATUS_STYLES, STORAGE_OPTIONS } from "./constants";
+import { APP_VERSION, STATUS_OPTIONS, STATUS_STYLES, STORAGE_OPTIONS } from "./constants";
 
 const emptyForm = {
   customerName: "",
@@ -664,6 +664,11 @@ function App() {
             </div>
           </section>
         </section>
+        <div className="flex justify-end px-1">
+          <span className="rounded-full border border-slate-200/80 bg-white/60 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+            v{APP_VERSION}
+          </span>
+        </div>
       </div>
 
       <FormDrawer
