@@ -8,3 +8,4 @@ client/dist/
 server/node_modules/
 server/data/
 
+.env
