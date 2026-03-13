@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const express = require("express");
 const cors = require("cors");
+const { initializeDatabase } = require("./db");
 const { ALLOWED_STATUSES, ALLOWED_STORAGE_CAPACITIES } = require("./constants");
 const {
   buildImportDuplicateKey,
@@ -67,14 +68,14 @@ app.get("/api/options", (req, res) => {
   });
 });
 
-app.get("/api/requests", (req, res) => {
+app.get("/api/requests", async (req, res) => {
   const filters = buildFilters(req.query);
-  const requests = listRequests(filters);
+  const requests = await listRequests(filters);
   res.json(requests);
 });
 
-app.get("/api/requests/export/csv", (req, res) => {
-  const requests = listRequests(buildFilters({}));
+app.get("/api/requests/export/csv", async (req, res) => {
+  const requests = await listRequests(buildFilters({}));
   const csv = generateCsv(requests);
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -82,7 +83,7 @@ app.get("/api/requests/export/csv", (req, res) => {
   res.send(csv);
 });
 
-app.post("/api/requests/import/csv", csvTextParser, (req, res) => {
+app.post("/api/requests/import/csv", csvTextParser, async (req, res) => {
   const { errors: csvErrors, rows } = parseCsv(req.body);
   const ignoreDuplicates = String(req.query.ignoreDuplicates).toLowerCase() === "true";
 
@@ -116,7 +117,7 @@ app.post("/api/requests/import/csv", csvTextParser, (req, res) => {
   let skippedCount = 0;
 
   if (ignoreDuplicates) {
-    const existingKeys = listImportDuplicateKeys();
+    const existingKeys = await listImportDuplicateKeys();
     const nextRows = [];
 
     for (const row of preparedRows) {
@@ -134,11 +135,11 @@ app.post("/api/requests/import/csv", csvTextParser, (req, res) => {
     rowsToImport = nextRows;
   }
 
-  const importedCount = createRequests(rowsToImport);
+  const importedCount = await createRequests(rowsToImport);
   return res.status(201).json({ importedCount, skippedCount });
 });
 
-app.post("/api/requests", (req, res) => {
+app.post("/api/requests", async (req, res) => {
   const now = new Date().toISOString();
   const { errors, value } = validateRequestPayload(req.body);
 
@@ -146,7 +147,7 @@ app.post("/api/requests", (req, res) => {
     return res.status(400).json({ errors });
   }
 
-  const request = createRequest({
+  const request = await createRequest({
     ...value,
     createdAt: now,
     updatedAt: now
@@ -155,14 +156,14 @@ app.post("/api/requests", (req, res) => {
   return res.status(201).json(request);
 });
 
-app.put("/api/requests/:id", (req, res) => {
+app.put("/api/requests/:id", async (req, res) => {
   const requestId = Number(req.params.id);
 
   if (!Number.isInteger(requestId)) {
     return res.status(400).json({ errors: ["Identifiant invalide."] });
   }
 
-  if (!findRequestById(requestId)) {
+  if (!(await findRequestById(requestId))) {
     return res.status(404).json({ errors: ["Demande introuvable."] });
   }
 
@@ -172,7 +173,7 @@ app.put("/api/requests/:id", (req, res) => {
     return res.status(400).json({ errors });
   }
 
-  const request = updateRequest(requestId, {
+  const request = await updateRequest(requestId, {
     ...value,
     updatedAt: new Date().toISOString()
   });
@@ -180,7 +181,7 @@ app.put("/api/requests/:id", (req, res) => {
   return res.json(request);
 });
 
-app.patch("/api/requests/:id/status", (req, res) => {
+app.patch("/api/requests/:id/status", async (req, res) => {
   const requestId = Number(req.params.id);
 
   if (!Number.isInteger(requestId)) {
@@ -193,7 +194,7 @@ app.patch("/api/requests/:id/status", (req, res) => {
     return res.status(400).json({ errors: ["Statut invalide."] });
   }
 
-  const request = updateRequestStatus(requestId, status, new Date().toISOString());
+  const request = await updateRequestStatus(requestId, status, new Date().toISOString());
 
   if (!request) {
     return res.status(404).json({ errors: ["Demande introuvable."] });
@@ -202,14 +203,14 @@ app.patch("/api/requests/:id/status", (req, res) => {
   return res.json(request);
 });
 
-app.delete("/api/requests/:id", (req, res) => {
+app.delete("/api/requests/:id", async (req, res) => {
   const requestId = Number(req.params.id);
 
   if (!Number.isInteger(requestId)) {
     return res.status(400).json({ errors: ["Identifiant invalide."] });
   }
 
-  const deleted = deleteRequest(requestId);
+  const deleted = await deleteRequest(requestId);
 
   if (!deleted) {
     return res.status(404).json({ errors: ["Demande introuvable."] });
@@ -228,7 +229,26 @@ if (hasClientBuild) {
   });
 }
 
-app.listen(PORT, () => {
-  const appType = hasClientBuild ? "Microwest app" : "Microwest API";
-  console.log(`${appType} running on http://localhost:${PORT}`);
+app.use((error, req, res, next) => {
+  console.error(error);
+
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  return res.status(500).json({ errors: ["Erreur interne du serveur."] });
+});
+
+async function start() {
+  await initializeDatabase();
+
+  app.listen(PORT, () => {
+    const appType = hasClientBuild ? "Microwest app" : "Microwest API";
+    console.log(`${appType} running on http://localhost:${PORT}`);
+  });
+}
+
+start().catch((error) => {
+  console.error("Impossible de demarrer le serveur:", error);
+  process.exit(1);
 });

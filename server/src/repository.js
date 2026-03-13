@@ -1,54 +1,66 @@
-const db = require("./db");
+const { db } = require("./db");
 const { serializeRequest } = require("./utils");
 
 function buildWhereClause(filters) {
   const conditions = [];
-  const params = {};
+  const args = [];
 
   if (filters.search) {
-    conditions.push("(customerName LIKE @search OR phoneNumber LIKE @search OR notes LIKE @search)");
-    params.search = `%${filters.search}%`;
+    conditions.push("(customerName LIKE ? OR phoneNumber LIKE ? OR notes LIKE ?)");
+    const searchValue = `%${filters.search}%`;
+    args.push(searchValue, searchValue, searchValue);
   }
 
   if (filters.model) {
-    conditions.push("requestedModel = @model");
-    params.model = filters.model;
+    conditions.push("requestedModel = ?");
+    args.push(filters.model);
   }
 
   if (filters.storage) {
-    conditions.push("storageCapacity = @storage");
-    params.storage = filters.storage;
+    conditions.push("storageCapacity = ?");
+    args.push(filters.storage);
   }
 
   if (filters.pendingOnly) {
     conditions.push("status = 'en_attente'");
   } else if (filters.status) {
-    conditions.push("status = @status");
-    params.status = filters.status;
+    conditions.push("status = ?");
+    args.push(filters.status);
   }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  return { params, whereClause };
+  return { args, whereClause };
 }
 
-function listRequests(filters) {
-  const { whereClause, params } = buildWhereClause(filters);
+function mapRows(rows) {
+  return rows.map((row) => serializeRequest({ ...row }));
+}
+
+async function listRequests(filters) {
+  const { whereClause, args } = buildWhereClause(filters);
   const orderBy = filters.sort === "oldest" ? "ASC" : "DESC";
 
-  const query = `
-    SELECT *
-    FROM requests
-    ${whereClause}
-    ORDER BY requestDate ${orderBy}, createdAt ${orderBy}
-  `;
+  const result = await db.execute({
+    sql: `
+      SELECT *
+      FROM requests
+      ${whereClause}
+      ORDER BY requestDate ${orderBy}, createdAt ${orderBy}
+    `,
+    args
+  });
 
-  return db.prepare(query).all(params).map(serializeRequest);
+  return mapRows(result.rows);
 }
 
-function findRequestById(id) {
-  const row = db.prepare("SELECT * FROM requests WHERE id = ?").get(id);
-  return row ? serializeRequest(row) : null;
+async function findRequestById(id) {
+  const result = await db.execute({
+    sql: "SELECT * FROM requests WHERE id = ?",
+    args: [id]
+  });
+  const row = result.rows[0];
+  return row ? serializeRequest({ ...row }) : null;
 }
 
 function buildImportDuplicateKey(request) {
@@ -60,135 +72,141 @@ function buildImportDuplicateKey(request) {
   ].join("|");
 }
 
-function listImportDuplicateKeys() {
-  const rows = db
-    .prepare(
-      `
-        SELECT customerName, phoneNumber, requestedModel, requestDate
-        FROM requests
-      `
-    )
-    .all();
-
-  return new Set(rows.map(buildImportDuplicateKey));
-}
-
-function createRequest(payload) {
-  const statement = db.prepare(`
-    INSERT INTO requests (
-      customerName,
-      phoneNumber,
-      brand,
-      requestedModel,
-      storageCapacity,
-      requestDate,
-      status,
-      notes,
-      createdAt,
-      updatedAt
-    ) VALUES (
-      @customerName,
-      @phoneNumber,
-      @brand,
-      @requestedModel,
-      @storageCapacity,
-      @requestDate,
-      @status,
-      @notes,
-      @createdAt,
-      @updatedAt
-    )
+async function listImportDuplicateKeys() {
+  const result = await db.execute(`
+    SELECT customerName, phoneNumber, requestedModel, requestDate
+    FROM requests
   `);
 
-  const result = statement.run(payload);
-  return findRequestById(result.lastInsertRowid);
+  return new Set(result.rows.map((row) => buildImportDuplicateKey({ ...row })));
 }
 
-function createRequests(payloads) {
+async function createRequest(payload) {
+  const result = await db.execute({
+    sql: `
+      INSERT INTO requests (
+        customerName,
+        phoneNumber,
+        brand,
+        requestedModel,
+        storageCapacity,
+        requestDate,
+        status,
+        notes,
+        createdAt,
+        updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    args: [
+      payload.customerName,
+      payload.phoneNumber,
+      payload.brand,
+      payload.requestedModel,
+      payload.storageCapacity,
+      payload.requestDate,
+      payload.status,
+      payload.notes,
+      payload.createdAt,
+      payload.updatedAt
+    ]
+  });
+
+  return findRequestById(Number(result.lastInsertRowid));
+}
+
+async function createRequests(payloads) {
   if (!Array.isArray(payloads) || payloads.length === 0) {
     return 0;
   }
 
-  const statement = db.prepare(`
-    INSERT INTO requests (
-      customerName,
-      phoneNumber,
-      brand,
-      requestedModel,
-      storageCapacity,
-      requestDate,
-      status,
-      notes,
-      createdAt,
-      updatedAt
-    ) VALUES (
-      @customerName,
-      @phoneNumber,
-      @brand,
-      @requestedModel,
-      @storageCapacity,
-      @requestDate,
-      @status,
-      @notes,
-      @createdAt,
-      @updatedAt
-    )
-  `);
+  await db.batch(
+    payloads.map((payload) => ({
+      sql: `
+        INSERT INTO requests (
+          customerName,
+          phoneNumber,
+          brand,
+          requestedModel,
+          storageCapacity,
+          requestDate,
+          status,
+          notes,
+          createdAt,
+          updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      args: [
+        payload.customerName,
+        payload.phoneNumber,
+        payload.brand,
+        payload.requestedModel,
+        payload.storageCapacity,
+        payload.requestDate,
+        payload.status,
+        payload.notes,
+        payload.createdAt,
+        payload.updatedAt
+      ]
+    })),
+    "write"
+  );
 
-  db.exec("BEGIN");
-
-  try {
-    for (const payload of payloads) {
-      statement.run(payload);
-    }
-
-    db.exec("COMMIT");
-    return payloads.length;
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+  return payloads.length;
 }
 
-function updateRequest(id, payload) {
-  const statement = db.prepare(`
-    UPDATE requests
-    SET
-      customerName = @customerName,
-      phoneNumber = @phoneNumber,
-      brand = @brand,
-      requestedModel = @requestedModel,
-      storageCapacity = @storageCapacity,
-      requestDate = @requestDate,
-      status = @status,
-      notes = @notes,
-      updatedAt = @updatedAt
-    WHERE id = @id
-  `);
-
-  const result = statement.run({
-    ...payload,
-    id
+async function updateRequest(id, payload) {
+  const result = await db.execute({
+    sql: `
+      UPDATE requests
+      SET
+        customerName = ?,
+        phoneNumber = ?,
+        brand = ?,
+        requestedModel = ?,
+        storageCapacity = ?,
+        requestDate = ?,
+        status = ?,
+        notes = ?,
+        updatedAt = ?
+      WHERE id = ?
+    `,
+    args: [
+      payload.customerName,
+      payload.phoneNumber,
+      payload.brand,
+      payload.requestedModel,
+      payload.storageCapacity,
+      payload.requestDate,
+      payload.status,
+      payload.notes,
+      payload.updatedAt,
+      id
+    ]
   });
 
-  return result.changes ? findRequestById(id) : null;
+  return result.rowsAffected ? findRequestById(id) : null;
 }
 
-function updateRequestStatus(id, status, updatedAt) {
-  const statement = db.prepare(`
-    UPDATE requests
-    SET status = @status, updatedAt = @updatedAt
-    WHERE id = @id
-  `);
+async function updateRequestStatus(id, status, updatedAt) {
+  const result = await db.execute({
+    sql: `
+      UPDATE requests
+      SET status = ?, updatedAt = ?
+      WHERE id = ?
+    `,
+    args: [status, updatedAt, id]
+  });
 
-  const result = statement.run({ id, status, updatedAt });
-  return result.changes ? findRequestById(id) : null;
+  return result.rowsAffected ? findRequestById(id) : null;
 }
 
-function deleteRequest(id) {
-  const statement = db.prepare("DELETE FROM requests WHERE id = ?");
-  const result = statement.run(id);
-  return result.changes > 0;
+async function deleteRequest(id) {
+  const result = await db.execute({
+    sql: "DELETE FROM requests WHERE id = ?",
+    args: [id]
+  });
+
+  return result.rowsAffected > 0;
 }
 
 module.exports = {

@@ -7,7 +7,7 @@ Mini application interne pour enregistrer rapidement les reservations clients qu
 - React 19 + Vite
 - Tailwind CSS 4
 - Node.js + Express
-- SQLite via `node:sqlite`
+- Turso (libSQL) via `@libsql/client`
 
 ## Structure
 
@@ -30,6 +30,17 @@ Depuis la racine du projet :
 
 ```bash
 npm install
+```
+
+## Variables d'environnement
+
+Le backend lit les variables depuis le fichier `.env` a la racine du projet.
+
+Variables requises :
+
+```bash
+TURSO_URL=libsql://your-database-name.turso.io
+TURSO_TOKEN=your-turso-auth-token
 ```
 
 ## Lancement en developpement
@@ -160,10 +171,6 @@ En production :
 
 ## Donnees
 
-La base SQLite est creee automatiquement au premier lancement dans `server/data/microwest.sqlite`.
+La table `requests` est creee automatiquement au premier lancement du backend si elle n'existe pas encore sur la base Turso configuree.
 
-Le mode journal SQLite `WAL` est active automatiquement.
-
-## Note SQLite
-
-Le backend utilise le module natif `node:sqlite` de Node.js pour eviter toute compilation locale de dependance C++.
+Les donnees ne sont donc plus stockees localement dans `server/data/`.

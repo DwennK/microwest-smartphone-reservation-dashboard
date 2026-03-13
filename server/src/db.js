@@ -1,29 +1,47 @@
-const fs = require("fs");
-const path = require("path");
-const { DatabaseSync } = require("node:sqlite");
+const path = require("node:path");
+const dotenv = require("dotenv");
+const { createClient } = require("@libsql/client");
 
-const dataDirectory = path.join(__dirname, "..", "data");
-const databasePath = path.join(dataDirectory, "microwest.sqlite");
+dotenv.config({
+  path: path.join(__dirname, "..", "..", ".env"),
+  quiet: true
+});
 
-fs.mkdirSync(dataDirectory, { recursive: true });
+const url = process.env.TURSO_URL || process.env.DATABASE_URL;
+const authToken = process.env.TURSO_TOKEN || process.env.DATABASE_AUTH_TOKEN;
 
-const db = new DatabaseSync(databasePath);
-db.exec("PRAGMA journal_mode = WAL");
+if (!url) {
+  throw new Error("Variable d'environnement manquante: TURSO_URL");
+}
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS requests (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    customerName TEXT NOT NULL,
-    phoneNumber TEXT NOT NULL,
-    brand TEXT NOT NULL,
-    requestedModel TEXT NOT NULL,
-    storageCapacity TEXT,
-    requestDate TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'en_attente',
-    notes TEXT,
-    createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL
-  )
-`);
+if (!authToken) {
+  throw new Error("Variable d'environnement manquante: TURSO_TOKEN");
+}
 
-module.exports = db;
+const db = createClient({
+  url,
+  authToken
+});
+
+async function initializeDatabase() {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customerName TEXT NOT NULL,
+      phoneNumber TEXT NOT NULL,
+      brand TEXT NOT NULL,
+      requestedModel TEXT NOT NULL,
+      storageCapacity TEXT,
+      requestDate TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'en_attente',
+      notes TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    )
+  `);
+}
+
+module.exports = {
+  db,
+  initializeDatabase
+};
